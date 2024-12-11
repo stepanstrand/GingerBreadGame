@@ -1,0 +1,205 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gingerbread Gift Catcher</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            height: 100vh;
+            background-color: #DFA345; /* Farthest background color */
+            flex-direction: row;
+        }
+        #leaderboardPanel {
+            width: 220px;
+            height: 100%;
+            background-color: rgba(165, 42, 42, 0.9); /* Darker brown shelf background */
+            color: #FFD700;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-size: 16px;
+            border-right: 5px solid #8B0000;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        #leaderboardPanel h3 {
+            text-align: center;
+            margin: 0 0 15px;
+            font-size: 18px;
+            color: #FFFFFF;
+        }
+        #leaderboardPanel ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #leaderboardPanel ul li {
+            margin-bottom: 10px;
+            background-color: #8B4513; /* Shelf wood color */
+            padding: 10px;
+            border-radius: 5px;
+            color: #FFFFFF;
+            text-align: center;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+        }
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: url('DALL·E 2024-12-11 22.26.43 - A festive Christmas bakery background without any people. The bakery features a warm and cozy setting with a focus on gingerbread baking. Wooden count.webp') no-repeat center center;
+            background-size: cover;
+            border: 5px solid #8B0000;
+            overflow: hidden;
+        }
+        #scoreboard {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #FFD700;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-size: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 2;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="leaderboardPanel">
+        <h3>Leaderboard</h3>
+        <ul id="scoreList">
+            <!-- Scores will be dynamically populated -->
+        </ul>
+    </div>
+    <div id="gameContainer">
+        <div id="scoreboard">Score: 0 | Personal Best: 0</div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const gingerbread = {
+            x: canvas.width / 2 - 40,
+            y: canvas.height - 120,
+            width: 80,
+            height: 100,
+            speed: 7,
+            image: new Image()
+        };
+        gingerbread.image.src = './Subject (1).png';
+
+        const gifts = [];
+        const giftImage = new Image();
+        giftImage.src = './cute-christmas-element-in-cartoon-style-free-png.webp';
+
+        let score = 0;
+        let personalBest = localStorage.getItem('personalBest') || 0;
+        let scoreHistory = JSON.parse(localStorage.getItem('scoreHistory')) || [];
+        let multiplier = 1;
+
+        function updateLeaderboard() {
+            const scoreList = document.getElementById('scoreList');
+            scoreList.innerHTML = scoreHistory
+                .map((score) => `<li>${score}</li>`)
+                .join('');
+        }
+
+        function createGift() {
+            const size = 60;
+            const x = Math.random() * (canvas.width - size);
+            gifts.push({ x, y: -size, size });
+        }
+
+        function update() {
+            // Update gingerbread position
+            if (keys.ArrowLeft && gingerbread.x > 0) {
+                gingerbread.x -= gingerbread.speed;
+            }
+            if (keys.ArrowRight && gingerbread.x + gingerbread.width < canvas.width) {
+                gingerbread.x += gingerbread.speed;
+            }
+
+            // Update gifts position
+            for (const gift of gifts) {
+                gift.y += 5;
+
+                // Check if gingerbread catches a gift
+                if (
+                    gift.x < gingerbread.x + gingerbread.width &&
+                    gift.x + gift.size > gingerbread.x &&
+                    gift.y < gingerbread.y + gingerbread.height &&
+                    gift.y + gift.size > gingerbread.y
+                ) {
+                    gifts.splice(gifts.indexOf(gift), 1);
+                    score += 10 * multiplier;
+                    multiplier++;
+                    if (score > personalBest) {
+                        personalBest = score;
+                        localStorage.setItem('personalBest', personalBest);
+                    }
+                }
+
+                // Remove gifts that fall off the screen
+                if (gift.y > canvas.height) {
+                    // Reset multiplier on missed gift
+                    multiplier = 1;
+                    gifts.splice(gifts.indexOf(gift), 1);
+                }
+            }
+
+            // Check for game over (if too many gifts are missed)
+            if (gifts.length > 5) {
+                scoreHistory.push(score);
+                localStorage.setItem('scoreHistory', JSON.stringify(scoreHistory));
+                updateLeaderboard();
+                score = 0;
+                multiplier = 1;
+                gifts.splice(0, gifts.length);
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw gingerbread
+            ctx.drawImage(gingerbread.image, gingerbread.x, gingerbread.y, gingerbread.width, gingerbread.height);
+
+            // Draw gifts
+            for (const gift of gifts) {
+                ctx.drawImage(giftImage, gift.x, gift.y, gift.size, gift.size);
+            }
+
+            // Update scoreboard
+            document.getElementById('scoreboard').textContent = `Score: ${score} | Personal Best: ${personalBest}`;
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Gift spawner
+        setInterval(createGift, 1000);
+
+        const keys = {};
+        window.addEventListener('keydown', (e) => (keys[e.key] = true));
+        window.addEventListener('keyup', (e) => (keys[e.key] = false));
+
+        // Initialize leaderboard
+        updateLeaderboard();
+
+        // Start game loop
+        loop();
+    </script>
+</body>
+</html>
